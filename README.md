@@ -46,45 +46,64 @@ database, not in the browser:
 
 ## Deploying
 
-Requirements: a Linux server with Docker, ports 80 and 443 open, and a DNS
-record pointing at it.
-
-### 1. DNS
-
-Point `vape.mlevo.de` at the server.
-
-> **If the domain is on Cloudflare, the record must be set to "DNS only" (grey
-> cloud), not proxied.** With the orange cloud on, Cloudflare terminates TLS
-> itself and Caddy's certificate check never completes, so the site will not come
-> up. In the Cloudflare dashboard: *DNS → Records →* the `vape` record *→* click
-> the orange cloud so it turns grey.
-
-### 2. Configure and start
+Requirements: a Linux server with a public IP. Docker is installed for you if it
+is missing. **No DNS is needed to start** — you can point a domain at it later.
 
 ```bash
 git clone https://github.com/Mayo73/Sunice-Vape-Shop.git
 cd Sunice-Vape-Shop
-cp .env.example .env
-nano .env            # set ACME_EMAIL; the rest is already filled in
-docker compose up -d --build
+./deploy.sh
 ```
 
-Caddy requests a Let's Encrypt certificate on first start. Give it a few
-seconds, then open `https://vape.mlevo.de`.
+That is the whole thing. The script checks Docker (offering to install it),
+asks how you want to serve the shop, writes `.env`, builds, starts, and checks
+that it answers. It is safe to re-run.
 
-### 3. Add items
+### The two modes
 
-Open `https://vape.mlevo.de/303`, sign in, and add the first items under
-**Items**.
+|  | |
+|---|---|
+| **`./deploy.sh --ip`** | Plain HTTP on the server's IP — `http://<server-ip>/`. Works immediately, no DNS. |
+| **`./deploy.sh --domain vape.mlevo.de`** | Automatic Let's Encrypt HTTPS. Needs DNS pointing at the server first. |
 
-### Updating later
+Both serve exactly the same app. The one thing the HTTP mode costs is the
+admin **Use my location** button: browsers only expose geolocation on a secure
+origin, so until the domain is live admins type the meeting point instead. The
+app says so plainly rather than failing quietly, and a typed meeting point is
+often clearer than coordinates anyway.
+
+Switching later is one command — nothing is lost, and the shop keeps running:
 
 ```bash
-git pull && docker compose up -d --build
+./deploy.sh --domain vape.mlevo.de
 ```
 
-`VITE_*` values are compiled into the bundle, so changing them means rebuilding
-(`--build`), not just restarting.
+### When you do set up the domain
+
+Point `vape.mlevo.de` at the server with an A record.
+
+> **If the domain is on Cloudflare, that record must be set to "DNS only" (grey
+> cloud), not proxied.** With the orange cloud on, Cloudflare terminates TLS
+> itself and Caddy's certificate check never completes, so HTTPS will not come
+> up. In the Cloudflare dashboard: *DNS → Records →* the `vape` record *→* click
+> the orange cloud so it turns grey.
+
+`deploy.sh --domain` warns you before starting if DNS does not resolve to this
+server, which is the usual reason a certificate never arrives.
+
+### Add items
+
+Open `/303` on whichever address you are serving, sign in, and add the first
+items under **Items**.
+
+### Updating
+
+```bash
+./deploy.sh --update
+```
+
+`VITE_*` values are compiled into the bundle, so changing them means rebuilding,
+which `--update` does.
 
 ### Checking on it
 

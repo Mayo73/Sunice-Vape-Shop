@@ -1,8 +1,19 @@
-{
-	email {$ACME_EMAIL}
-}
+# SITE_ADDRESS decides the mode, and nothing else changes between them:
+#
+#   SITE_ADDRESS=vape.mlevo.de   -> automatic Let's Encrypt HTTPS (needs DNS)
+#   SITE_ADDRESS=:80             -> plain HTTP on the server's IP (no DNS needed)
+#
+# The HTTP mode exists so the shop can be deployed and used before DNS is
+# pointed at the server. The one thing it costs is the admin "Use my location"
+# button: browsers only expose geolocation on a secure origin, so admins have to
+# type the meeting point until the domain is live. The app says so explicitly
+# rather than failing quietly.
 
-{$APP_DOMAIN} {
+# No global ACME email on purpose: an empty one stops Caddy from starting at all,
+# and certificates are issued and renewed automatically without it. Add
+# `email you@example.com` here if you want Let's Encrypt expiry notices.
+
+{$SITE_ADDRESS} {
 	root * /srv
 	encode zstd gzip
 
@@ -11,7 +22,6 @@
 		Referrer-Policy "no-referrer"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
 		# Geolocation is the one powerful feature this app uses, and only admins
 		# on this origin ever reach it.
@@ -23,13 +33,19 @@
 		Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'"
 	}
 
+	# Only meaningful once the site is actually on HTTPS. Sending it over plain
+	# HTTP is ignored by browsers, so this is safe in both modes -- but it is
+	# scoped to the https case anyway to keep the intent obvious.
+	@https expression {scheme} == "https"
+	header @https Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
 	# Filenames carry a content hash, so these can be cached forever.
 	@hashed path /assets/*
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
 
 	# The shell and the service worker must never be cached, or a deploy would
 	# not reach phones that already have the app installed.
-	@shell path /index.html / /sw.js /registerSW.js /manifest.webmanifest
+	@shell path / /index.html /sw.js /registerSW.js /manifest.webmanifest
 	header @shell Cache-Control "no-cache"
 
 	# Client-side routing: unknown paths are app routes, not missing files.
