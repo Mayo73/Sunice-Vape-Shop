@@ -1,0 +1,23 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Build-time configuration: holds the Supabase project URL and key for this
+# deployment. Copy .env.example and fill it in on the server.
+.env
+.env.*
+!.env.example
+
+# The five admin logins. Never commit these.
+ADMIN-CREDENTIALS.md
+
+# Caddy's certificate store when running compose from the repo directory
+caddy_data/
+caddy_config/
+
+.DS_Store
+*.log
+npm-debug.log*
+.vscode/
+.idea/
