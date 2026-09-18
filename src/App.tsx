@@ -28,9 +28,14 @@ function Loading() {
   )
 }
 
+// Vite's base ("/" or e.g. "/shop/") becomes the router's basename, so every
+// route and link below stays written as if the app lived at the root. The
+// router wants it without the trailing slash.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || '/'
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <AuthProvider>
         <ShopProvider>
           <CartProvider>

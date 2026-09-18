@@ -13,8 +13,12 @@ COPY . .
 # runtime environment. Changing them means rebuilding the image.
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_PUBLISHABLE_KEY
+# "/" normally; a sub-path like "/shop/" when served behind a reverse proxy
+# next to another site on the same domain (see .env.example).
+ARG BASE_PATH=/
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
+ENV BASE_PATH=$BASE_PATH
 
 RUN npm run build
 

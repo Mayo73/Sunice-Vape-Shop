@@ -91,6 +91,42 @@ Point `vape.mlevo.de` at the server with an A record.
 `deploy.sh --domain` warns you before starting if DNS does not resolve to this
 server, which is the usual reason a certificate never arrives.
 
+### Sharing a domain
+
+If ports 80 and 443 on the server already belong to another site, the shop can
+live next to it under a path, e.g. `https://example.com/shop/`. No DNS change is
+needed because the domain already points at the server. In `.env`:
+
+```
+SITE_ADDRESS=:80
+HTTP_PORT=8080
+HTTPS_PORT=8443
+BASE_PATH=/shop/
+```
+
+Caddy then serves the app on port 8080 with every asset, route and the PWA
+manifest under `/shop/`, and the existing web server hands that path over with
+the prefix stripped. For nginx:
+
+```nginx
+location = /shop { return 301 /shop/; }
+location ^~ /shop/ {
+    proxy_pass http://<server-ip>:8080/;
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+`^~` matters: without it a regex `location` for static files would catch
+`/shop/assets/…` first. The admin area is then at `/shop/303`, and since the
+outer site is HTTPS, **Use my location** works.
+
+> Behind Cloudflare, Bot Fight Mode injects an inline script that the shop's
+> Content Security Policy blocks. The app is unaffected; it only shows up as a
+> console error. Turn the feature off for the zone if that bothers you.
+
 ### Add items
 
 Open `/303` on whichever address you are serving, sign in, and add the first
@@ -102,8 +138,8 @@ items under **Items**.
 ./deploy.sh --update
 ```
 
-`VITE_*` values are compiled into the bundle, so changing them means rebuilding,
-which `--update` does.
+`VITE_*` values and `BASE_PATH` are compiled into the bundle, so changing them
+means rebuilding, which `--update` does.
 
 ### Checking on it
 
