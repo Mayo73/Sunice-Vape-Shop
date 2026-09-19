@@ -633,6 +633,14 @@
 .notice--info  { background: var(--cyan-soft);   border-color: rgba(0,229,255,0.3);  color: #b8f2ff; }
 .notice--warn  { background: rgba(255,179,71,0.12); border-color: rgba(255,179,71,0.4); color: #ffd9a3; }
 
+/* a notice with buttons in it: text first, buttons wrap under it on narrow phones */
+.notice--action { flex-wrap: wrap; align-items: center; }
+.notice--action > span { flex: 1 1 180px; }
+
+/* numbered steps, e.g. the iPhone install instructions */
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+.steps li { padding-left: 4px; line-height: 1.45; }
+
 /* ---------------------------------------------------------------- empty / loading */
 .empty {
   text-align: center;

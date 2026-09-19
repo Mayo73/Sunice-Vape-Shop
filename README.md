@@ -17,10 +17,13 @@ over a location, and a ten minute pickup countdown starts. Cash only, on pickup.
 Phone browser  ──►  Caddy (static files, auto HTTPS)
       │
       └─────────►  Supabase: Postgres + RLS + rpcs · Auth · Storage
+                        │
+                        └──►  push edge function  ──►  the phones' push services
 ```
 
-There is no application server. Everything that matters is enforced in the
-database, not in the browser:
+There is no application server. The one piece of server-side code is a small
+edge function that sends push notifications when the database tells it to.
+Everything that matters is enforced in the database, not in the browser:
 
 - Customers **cannot read the `orders` table at all**. They call three
   `SECURITY DEFINER` functions and nothing else.
@@ -37,9 +40,9 @@ database, not in the browser:
 |---|---|
 | 1 | Customer adds items and taps **Place order** — no form, no fields. |
 | 2 | They get a code like `GMDP` and a secret link, kept in this browser only. |
-| 3 | The order appears on every admin's board instantly. |
+| 3 | The order appears on every admin's board instantly, and admins who turned it on get a push. |
 | 4 | An admin taps **Accept** and shares a location, automatically or by typing a meeting point. |
-| 5 | The customer's screen shows the location and a **10:00** countdown. |
+| 5 | The customer's screen shows the location and a **10:00** countdown — and their phone gets a push, if they asked for one. |
 | 6 | The admin marks it **Picked up**, and cash changes hands. |
 
 ---
@@ -150,6 +153,71 @@ docker compose ps
 
 ---
 
+## Push notifications
+
+Two messages exist, and only two:
+
+| Who | When | Says |
+|---|---|---|
+| Every admin device that opted in | an order is placed | *New order GMDP — 3 items · €24.00 in cash* |
+| The customer's device, if they tapped **Notify me** | an admin accepts their order | *Order GMDP accepted — Gecko is ready. Behind the kiosk. You have 10 minutes.* |
+
+Tapping either opens the right screen. Nothing is sent for declines or pickups.
+
+**Customers** get a **Notify me** button on the order page while they wait; a
+device that said yes once is re-attached to each later order without asking
+again. **Admins** are nudged once on the Orders board and have a switch under
+*Shop → Notifications*, per device.
+
+**iPhones** only deliver push to a web app on the Home Screen, never to Safari.
+So on an iPhone the order page shows two steps instead of a button: *Share →
+Add to Home Screen*, then open Sunice from the Home Screen and tap **Notify
+me**. The app that gets installed opens on that very order, because iOS is
+handed a manifest without a `start_url` and the standard then falls back to the
+page being added — the Home Screen app has its own storage and would otherwise
+know nothing about the order. Admins on iPhones install the same way and sign
+in inside the app.
+
+### How it is built
+
+- A trigger on `orders` queues one HTTP call through `pg_net` after the
+  transaction commits, to the `push` edge function in `supabase/functions/push`.
+- The function reads the order and the devices with the service key, claims a
+  row in `push_deliveries` so a retry can never notify twice, and sends Web Push
+  with VAPID. Devices whose push service answers 404/410 are deleted.
+- Customers register a device through `subscribe_order_push()`, proving the
+  order is theirs with its access token, like `get_order()`. Admins go through
+  `register_admin_push()`. Neither table is readable by anyone but the service.
+- The service worker (`src/sw.ts`) shows the notification and opens the screen
+  the payload points at, relative to wherever the app is mounted.
+
+### Setting it up on a new project
+
+The migration `0008_push.sql` creates everything, including the webhook secret,
+which is generated inside the database and kept in Vault — nothing to copy. The
+VAPID key pair is the one thing made by hand:
+
+```bash
+npx web-push generate-vapid-keys
+supabase secrets set --project-ref <ref> VAPID_PUBLIC_KEY=<public> VAPID_PRIVATE_KEY=<private> VAPID_SUBJECT=https://your.site/
+supabase functions deploy push --project-ref <ref> --no-verify-jwt
+```
+
+`--no-verify-jwt` is deliberate: the trigger authenticates with the Vault secret
+in an `x-push-secret` header, not with a JWT, and the function refuses anything
+else. Then hand browsers the public half:
+
+```sql
+update public.shop_settings set push_public_key = '<public>' where id = 1;
+```
+
+While that column is null the app shows no notification controls at all, so
+the shop works fine without any of this. Rotating the key means every device
+subscribes again; the old subscriptions fail with 404/410 and clean themselves
+up.
+
+---
+
 ## The admin area
 
 `/303` is unlisted: nothing in the customer interface links to it, and the site
@@ -197,13 +265,15 @@ as one, so both work in development.
 
 ```
 src/
-  lib/          supabase client, formatting, geolocation, image resizing, hooks
+  lib/          supabase client, formatting, geolocation, push, image resizing, hooks
   state/        cart, auth and shop-status contexts
-  components/   shell, top bar, cart sheet, countdown, product card, icons
+  components/   shell, top bar, cart sheet, countdown, notify panel, product card, icons
   routes/       Shop · Product · Checkout · OrderStatus
     admin/      Login · Layout · Orders · Products · Settings
+  sw.ts         the service worker: app shell cache and push notifications
 supabase/
   migrations/   the database, in order
+  functions/    the push edge function
 ```
 
 ### Database

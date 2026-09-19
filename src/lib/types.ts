@@ -14,6 +14,8 @@ export interface Product {
 export interface ShopSettings {
   is_paused: boolean
   paused_message: string
+  /** VAPID public key. Null means push is not set up and no controls are shown. */
+  push_public_key: string | null
 }
 
 export interface CartLine {

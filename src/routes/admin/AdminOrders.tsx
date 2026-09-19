@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { formatAgo, formatClock, formatCoords, formatPrice, mapLinks } from '../../lib/format'
 import { errorMessage } from '../../lib/errors'
-import { usePolling } from '../../lib/hooks'
+import { usePersistentState, usePolling } from '../../lib/hooks'
 import { Countdown } from '../../components/Countdown'
 import { ErrorNote, Spinner } from '../../components/Shell'
-import { BoxIcon, PinIcon } from '../../components/Icons'
+import { BellIcon, BoxIcon, CloseIcon, PinIcon } from '../../components/Icons'
 import { AcceptSheet } from './AcceptSheet'
+import { useAdminPush } from './useAdminPush'
 import type { AdminOrder } from '../../lib/types'
 
 /** Realtime is the fast path; this poll is the safety net if a socket drops. */
@@ -18,6 +19,12 @@ export default function AdminOrders() {
   const [accepting, setAccepting] = useState<AdminOrder | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
+
+  // Asked once, here, where it matters; the switch under Shop remains.
+  const push = useAdminPush()
+  const [nudgeDismissed, setNudgeDismissed] = usePersistentState('sunice.push.nudge.v1', false)
+  const nudge =
+    !nudgeDismissed && !push.enabled && (push.support === 'ready' || push.support === 'needs-install')
 
   const load = useCallback(async () => {
     const { data, error: err } = await supabase
@@ -84,6 +91,39 @@ export default function AdminOrders() {
       {error && (
         <div style={{ marginBottom: 12 }}>
           <ErrorNote>{error}</ErrorNote>
+        </div>
+      )}
+
+      {nudge && (
+        <div className="notice notice--info notice--action" style={{ marginBottom: 12 }}>
+          <span>
+            {push.support === 'ready'
+              ? 'Get a push when a new order comes in, even with the phone locked.'
+              : 'On iPhone, push only works from the Home Screen app: Share → Add to Home Screen, then sign in there.'}
+          </span>
+          {push.support === 'ready' && (
+            <button
+              type="button"
+              className="btn btn--sm btn--accent"
+              disabled={push.busy}
+              onClick={() => void push.enable()}
+            >
+              <BellIcon size={16} /> Turn on
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn--sm btn--ghost"
+            aria-label="Not now"
+            onClick={() => setNudgeDismissed(true)}
+          >
+            <CloseIcon size={16} />
+          </button>
+        </div>
+      )}
+      {push.error && (
+        <div style={{ marginBottom: 12 }}>
+          <ErrorNote>{push.error}</ErrorNote>
         </div>
       )}
 

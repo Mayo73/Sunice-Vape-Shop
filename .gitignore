@@ -21,3 +21,6 @@ caddy_config/
 npm-debug.log*
 .vscode/
 .idea/
+
+# Supabase CLI scratch
+supabase/.temp/

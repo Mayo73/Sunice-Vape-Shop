@@ -13,6 +13,7 @@ const MESSAGES: Record<string, string> = {
   ORDER_NOT_ACCEPTED: 'This order is not waiting for pickup.',
   ORDER_NOT_OPEN: 'This order is already closed.',
   PICKUP_REQUIRED: 'Add a location or a meeting point before accepting.',
+  BAD_SUBSCRIPTION: 'This browser returned an unusable notification subscription.',
 }
 
 export function errorMessage(err: unknown, fallback = 'Something went wrong. Please try again.'): string {

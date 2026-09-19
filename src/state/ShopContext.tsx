@@ -11,13 +11,17 @@ interface ShopValue extends ShopSettings {
 const ShopContext = createContext<ShopValue | null>(null)
 
 export function ShopProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<ShopSettings>({ is_paused: false, paused_message: '' })
+  const [settings, setSettings] = useState<ShopSettings>({
+    is_paused: false,
+    paused_message: '',
+    push_public_key: null,
+  })
   const [ready, setReady] = useState(false)
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from('shop_settings')
-      .select('is_paused, paused_message')
+      .select('is_paused, paused_message, push_public_key')
       .eq('id', 1)
       .maybeSingle()
 

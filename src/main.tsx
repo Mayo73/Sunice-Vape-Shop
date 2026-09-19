@@ -13,6 +13,17 @@ import '@fontsource/inter/latin-600.css'
 import './styles/theme.css'
 import './styles/app.css'
 import App from './App'
+import { isIOS } from './lib/push'
+
+// iPhones only deliver push to the Home Screen app, and that app opens on the
+// manifest's start_url -- the shop, not the order on screen. Without a
+// start_url the standard falls back to the page being added, so on iOS the
+// link points at a manifest that has none (built in vite.config.ts): adding
+// the order page to the Home Screen installs an app that opens on that order.
+if (isIOS()) {
+  const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
+  if (link) link.href = `${import.meta.env.BASE_URL}manifest-ios.webmanifest`
+}
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root is missing from index.html')

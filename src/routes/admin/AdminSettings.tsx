@@ -4,9 +4,11 @@ import { errorMessage } from '../../lib/errors'
 import { useShop } from '../../state/ShopContext'
 import { ErrorNote, Spinner } from '../../components/Shell'
 import { CheckIcon } from '../../components/Icons'
+import { useAdminPush } from './useAdminPush'
 
 export default function AdminSettings() {
   const shop = useShop()
+  const push = useAdminPush()
   const [paused, setPaused] = useState(shop.is_paused)
   const [message, setMessage] = useState(shop.paused_message)
   const [saving, setSaving] = useState(false)
@@ -116,6 +118,52 @@ export default function AdminSettings() {
           placed while it is closed, even from a page that was already open.
         </span>
       </div>
+
+      {push.support !== null && (
+        <>
+          <h2 className="h2" style={{ marginTop: 28 }}>
+            Notifications
+          </h2>
+
+          {push.error && (
+            <div style={{ marginBottom: 12 }}>
+              <ErrorNote>{push.error}</ErrorNote>
+            </div>
+          )}
+
+          {push.support === 'ready' || push.enabled ? (
+            <label className="switch panel">
+              <span>
+                <strong>{push.enabled ? 'New orders ping this device' : 'This device stays silent'}</strong>
+                <br />
+                <span className="tiny muted">
+                  {push.enabled
+                    ? 'Turning this off only affects this device; your other devices keep theirs.'
+                    : 'Get a push the moment an order comes in, even with the phone locked.'}
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={push.enabled}
+                disabled={push.busy}
+                onChange={(e) => void (e.target.checked ? push.enable() : push.disable())}
+              />
+              <span className="switch__track" />
+            </label>
+          ) : (
+            <div className="panel">
+              <p style={{ margin: 0 }}>
+                {push.support === 'needs-install' &&
+                  'On iPhone, push only works from the Home Screen app: tap Share → Add to Home Screen, then sign in there and come back here.'}
+                {push.support === 'denied' &&
+                  'Notifications are blocked for this site in your browser settings. Allow them there, then reload.'}
+                {push.support === 'unsupported' &&
+                  'This browser cannot receive push notifications. Any recent Chrome, Firefox or Samsung browser can; on iPhone, use the Home Screen app.'}
+              </p>
+            </div>
+          )}
+        </>
+      )}
     </>
   )
 }

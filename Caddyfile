@@ -45,7 +45,7 @@
 
 	# The shell and the service worker must never be cached, or a deploy would
 	# not reach phones that already have the app installed.
-	@shell path / /index.html /sw.js /registerSW.js /manifest.webmanifest
+	@shell path / /index.html /sw.js /registerSW.js /manifest.webmanifest /manifest-ios.webmanifest
 	header @shell Cache-Control "no-cache"
 
 	# Client-side routing: unknown paths are app routes, not missing files.

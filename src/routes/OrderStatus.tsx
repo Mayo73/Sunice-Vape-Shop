@@ -3,10 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatPrice, formatCoords, mapLinks } from '../lib/format'
 import { errorMessage } from '../lib/errors'
-import { forgetOrder } from '../lib/activeOrder'
+import { forgetOrder, readActiveOrder, rememberOrder } from '../lib/activeOrder'
 import { usePolling } from '../lib/hooks'
 import { TopBar } from '../components/TopBar'
 import { Countdown } from '../components/Countdown'
+import { NotifyPanel } from '../components/NotifyPanel'
 import { ErrorNote, Shell } from '../components/Shell'
 import { CheckIcon, PinIcon, VaporIcon } from '../components/Icons'
 import type { CustomerOrder } from '../lib/types'
@@ -21,6 +22,7 @@ export default function OrderStatus() {
   const [offsetMs, setOffsetMs] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [notifying, setNotifying] = useState(false)
   const missing = useRef(false)
 
   const load = useCallback(async () => {
@@ -46,6 +48,13 @@ export default function OrderStatus() {
     setOrder(next)
     setError(null)
     setLoading(false)
+
+    // Opened from the secret link in a browser that has never seen this order
+    // -- the Home Screen app on an iPhone, say -- adopt it, so the shop page
+    // shows the "order in progress" banner here too.
+    if ((next.status === 'pending' || next.status === 'accepted') && readActiveOrder()?.token !== token) {
+      rememberOrder(token, next.code)
+    }
   }, [token])
 
   useEffect(() => {
@@ -120,11 +129,14 @@ export default function OrderStatus() {
             </div>
             <p style={{ margin: 0 }}>An admin is looking at your order.</p>
             <p className="muted tiny" style={{ margin: '6px 0 0' }}>
-              Keep this screen open. You will get a location and a 10 minute window as soon as
-              someone takes it.
+              {notifying
+                ? 'You will get a location and a 10 minute window as soon as someone takes it.'
+                : 'Keep this screen open. You will get a location and a 10 minute window as soon as someone takes it.'}
             </p>
           </div>
         )}
+
+        {order.status === 'pending' && token && <NotifyPanel token={token} onChange={setNotifying} />}
 
         {order.status === 'accepted' && !expired && (
           <>
